@@ -1,2 +1,4 @@
 ani-helper*
 *.o
+compile_commands.json
+*.cache/
