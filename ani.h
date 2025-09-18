@@ -34,6 +34,9 @@ typedef struct {
 } Frame;
 
 typedef struct {
+    uint32_t hotx;
+    uint32_t hoty;
+
     unsigned count;
     Frame **frames;
 } ChunkList;

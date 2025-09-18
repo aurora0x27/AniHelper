@@ -38,13 +38,15 @@ typedef struct {
     unsigned count;
     uint32_t cx;
     uint32_t cy;
+    uint32_t hotx;
+    uint32_t hoty;
     IconInfo *icons;
 
     char flag;
-} CollectedData;
+} CursorData;
 
 static void collect_chunk_info(const Chunk *chunk, void *data) {
-    CollectedData *d = (CollectedData *)data;
+    CursorData *d = (CursorData *)data;
     switch (chunk->ty) {
         case ty_anih: {
             ChunkAnih *inner = chunk->inner;
@@ -85,6 +87,8 @@ static void collect_chunk_info(const Chunk *chunk, void *data) {
                 for (unsigned i = 0; i < inner->count; ++i) {
                     d->icons[i].buf = inner->frames[i]->buffer;
                     d->icons[i].buf_size = inner->frames[i]->size;
+                    d->hotx = inner->hotx;
+                    d->hoty = inner->hoty;
                 }
             }
             break;
@@ -161,26 +165,6 @@ static void write_file(const char *path, const void *buf, size_t n) {
     fclose(out);
 }
 
-// static void write_file(const char *path, const void *buf, size_t n) {
-//     FILE *out = fopen(path, "wb");
-//     if (!out) {
-//         fprintf(stderr, "failed to open %s\n", path);
-//         return;
-//     }
-//     fwrite(buf, 1, n, out);
-//     fclose(out);
-// }
-
-// static const char *basename(const char *name) {
-//     const char *basename = strrchr(name, '/');
-//     if (basename) {
-//         basename++;
-//     } else {
-//         basename = name;
-//     }
-//     return basename;
-// }
-
 const static char *basename(const char *name) {
     const char *basename = strlen(name) + name;
     while (basename != name && *(basename - 1) != '/') {
@@ -189,12 +173,14 @@ const static char *basename(const char *name) {
     return basename;
 }
 
-static int emit_info(const GlobalContext *ctx, const CollectedData *data, const char *filename) {
+static int emit_info(const GlobalContext *ctx, const CursorData *data, const char *filename) {
     // Dump content(json)
     // {
     //   "name": xxx.ani,
     //   "width": cx,
     //   "height": cy,
+    //   "hotx": hotx,
+    //   "hoty": hoty
     //   "frames": [
     //      {
     //        "path": "path/to/frame01.ico",
@@ -220,7 +206,9 @@ static int emit_info(const GlobalContext *ctx, const CollectedData *data, const 
             }
             sb_appendf(json, "{\"name\": \"%s\",", realname);
             sb_appendf(json, "\"width\": %u,", data->cx);
-            sb_appendf(json, "\"height\": %u,", data->cx);
+            sb_appendf(json, "\"height\": %u,", data->cy);
+            sb_appendf(json, "\"hotx\": %u,", data->hotx);
+            sb_appendf(json, "\"hoty\": %u,", data->hoty);
             sb_appendf(json, "\"frames\": [");
             if (data->count >= 1) {
                 for (unsigned i = 0; i < data->count - 1; ++i) {
@@ -276,7 +264,9 @@ static int emit_info(const GlobalContext *ctx, const CollectedData *data, const 
             }
             sb_appendf(json, "Name: %s\n", realname);
             sb_appendf(json, "Width: %u\n", data->cx);
-            sb_appendf(json, "Height: %u\n", data->cx);
+            sb_appendf(json, "Height: %u\n", data->cy);
+            sb_appendf(json, "HotX: %u\n", data->hotx);
+            sb_appendf(json, "HotY: %u\n", data->hoty);
             sb_appendf(json, "Frames:\n");
             if (data->count >= 1) {
                 for (unsigned i = 0; i < data->count; ++i) {
@@ -341,7 +331,7 @@ static int run_task(const GlobalContext *ctx) {
         walk_ctx.ani = ani;
         walk_ctx.visit_chunk = &collect_chunk_info;
         walk_ctx.visit_frame = NULL;
-        CollectedData data;
+        CursorData data;
         data.count = 0;
         data.icons = NULL;
         data.flag = 0;

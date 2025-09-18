@@ -246,6 +246,18 @@ static ChunkList *parse_list(ParseContext *ctx) {
             if (!frame) {
                 continue;
             }
+            if (icon_count == 0) {
+                // Parse hotspot, in 1st frame
+                uint8_t *buf = frame->buffer;
+                uint16_t type = buf[2] | (buf[3] << 8);
+                if (type == 2) {
+                    list->hotx = buf[10] | (buf[11] << 8);
+                    list->hoty = buf[12] | (buf[13] << 8);
+                } else {
+                    list->hotx = 0;
+                    list->hoty = 0;
+                }
+            }
             if (list->count + 1 > capacitty) {
                 capacitty <<= 1;
                 Frame **tmp = realloc(list->frames, capacitty * sizeof(Frame *));
