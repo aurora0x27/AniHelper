@@ -432,7 +432,7 @@ void cleanup_ani(AniFile *ani) {
     }
 }
 
-void walk(WalkContext *ctx) {
+void walk(const WalkContext *ctx) {
     for (unsigned i = 0; i < ctx->ani->chunk_count; ++i) {
         debug("Visit chunk `%d`", i);
         if (ctx->visit_chunk) {

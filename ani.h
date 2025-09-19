@@ -53,9 +53,9 @@ typedef struct {
     Chunk **chunks;
 } AniFile;
 
-typedef void (*VisitChunkCallback)(const Chunk *, void *data);
+typedef void (*VisitChunkCallback)(const Chunk *, void *);
 
-typedef void (*VisitFrameCallback)(const Frame *, void *data);
+typedef void (*VisitFrameCallback)(const Frame *, void *);
 
 typedef struct {
     AniFile *ani;
@@ -64,7 +64,7 @@ typedef struct {
     VisitFrameCallback visit_frame;
 } WalkContext;
 
-void walk(WalkContext *ctx);
+void walk(const WalkContext *ctx);
 
 AniFile *parse_ani(FILE *file);
 

@@ -29,7 +29,6 @@ typedef struct {
 
 typedef struct {
     float time_ms;
-    // unsigned entry_index;
     void *buf;
     size_t buf_size;
 } IconInfo;
@@ -73,11 +72,6 @@ static void collect_chunk_info(const Chunk *chunk, void *data) {
             break;
         }
         case ty_seq: {
-            // ChunkSeq *inner = chunk->inner;
-            // assert(d->count == inner->count);
-            // for (unsigned i = 0; i < inner->count; ++i) {
-            //     d->icons[i]->entry_index = inner->indexes[i];
-            // }
             break;
         }
         case ty_list: {
@@ -113,10 +107,7 @@ static int create_dir_recursive(char *dir) {
             memcpy(tmp, dir, len);
             tmp[len] = '\0';
 
-            // On Windows, if the path starts with a drive letter, skip the first two characters
-            if (len > 2 && tmp[1] == ':' && (tmp[2] == '/' || tmp[2] == '\\')) {
-                // Do nothing, we need the full path
-            } else if (MKDIR(tmp) == 0) {
+            if (MKDIR(tmp) == 0) {
                 // Directory created successfully
             } else if (errno != EEXIST) {
                 fprintf(stderr, "Failed to create directory '%s': %s\n", tmp, strerror(errno));
@@ -257,17 +248,17 @@ static int emit_info(const GlobalContext *ctx, const CursorData *data, const cha
             return 0;
         }
         case Plain: {
-            StringBuilder *json = sb_new();
-            if (!json) {
+            StringBuilder *text = sb_new();
+            if (!text) {
                 err("OOM in function `%s`, line `%d`", __PRETTY_FUNCTION__, __LINE__);
                 return 1;
             }
-            sb_appendf(json, "Name: %s\n", realname);
-            sb_appendf(json, "Width: %u\n", data->cx);
-            sb_appendf(json, "Height: %u\n", data->cy);
-            sb_appendf(json, "HotX: %u\n", data->hotx);
-            sb_appendf(json, "HotY: %u\n", data->hoty);
-            sb_appendf(json, "Frames:\n");
+            sb_appendf(text, "Name: %s\n", realname);
+            sb_appendf(text, "Width: %u\n", data->cx);
+            sb_appendf(text, "Height: %u\n", data->cy);
+            sb_appendf(text, "HotX: %u\n", data->hotx);
+            sb_appendf(text, "HotY: %u\n", data->hoty);
+            sb_appendf(text, "Frames:\n");
             if (data->count >= 1) {
                 for (unsigned i = 0; i < data->count; ++i) {
                     StringBuilder *path_buf = sb_new();
@@ -275,21 +266,21 @@ static int emit_info(const GlobalContext *ctx, const CursorData *data, const cha
                         err("OOM in function `%s`, line `%d`", __PRETTY_FUNCTION__, __LINE__);
                         return 1;
                     }
-                    sb_appendf(json, "  Frame%3d\n", i);
-                    sb_appendf(path_buf, "    Output file: %s/%s/frame-%03d.ico", ctx->prefix, realname, i);
+                    sb_appendf(text, "  Frame%3d\n", i);
+                    sb_appendf(path_buf, "%s/%s/frame-%03d.ico", ctx->prefix, realname, i);
                     if (ctx->mode == Extract) {
                         write_file(path_buf->data, data->icons[i].buf, data->icons[i].buf_size);
                         debug("Writing to file `%s`", path_buf->data);
                     }
 
-                    sb_appendf(json, "    Path: %s\n", path_buf->data);
-                    sb_appendf(json, "    Duration: %.3f\n", data->icons[i].time_ms);
+                    sb_appendf(text, "    Output file: %s\n", path_buf->data);
+                    sb_appendf(text, "    Duration: %.3f\n", data->icons[i].time_ms);
 
                     sb_cleanup(path_buf);
                 }
             }
-            puts(json->data);
-            sb_cleanup(json);
+            puts(text->data);
+            sb_cleanup(text);
             return 0;
         }
         case Silent: {
@@ -407,9 +398,7 @@ static GlobalContext *parse_args(int argc, char **argv) {
         } else if (is_arg("-extract")) {
             ctx->mode = Extract;
         } else if (is_arg("-o")) {
-            if (i + 1 >= argc) {
-                warn("No path is assigned after '-o'");
-            } else if (*argv[i + 1] == '-') {
+            if (i + 1 >= argc || *argv[i + 1] == '-') {
                 warn("No path is assigned after '-o'");
             } else {
                 strcpy((char *)ctx->prefix, argv[i + 1]);
