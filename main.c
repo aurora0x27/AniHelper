@@ -39,9 +39,9 @@ typedef struct {
     uint32_t cy;
     uint32_t hotx;
     uint32_t hoty;
+    uint32_t jif_rate;
+    char has_rate;  // has rate chunk
     IconInfo *icons;
-
-    char flag;
 } CursorData;
 
 static void collect_chunk_info(const Chunk *chunk, void *data) {
@@ -53,20 +53,22 @@ static void collect_chunk_info(const Chunk *chunk, void *data) {
             assert(inner->cFrames == inner->cSteps);
             d->cx = inner->cx;
             d->cy = inner->cy;
+            d->jif_rate = inner->jifRate;
             d->icons = malloc(d->count * sizeof(IconInfo));
             if (!d->icons) {
                 err("OOM in function `%s`, line `%d`", __PRETTY_FUNCTION__, __LINE__);
-                d->flag = 0;
             }
             break;
         }
         case ty_rate: {
-            if (!d->flag) {
+            d->has_rate = 1;
+            if (d->icons) {
                 ChunkRate *inner = chunk->inner;
                 assert(d->count == inner->count);
                 for (unsigned i = 0; i < inner->count; ++i) {
-                    float tmp = inner->jiffies[i] * 1000.0 / 60.0;
-                    d->icons[i].time_ms = tmp;
+                    float duration = inner->jiffies[i] == 0 ? d->jif_rate * 1000.0 / 60.0
+                                                            : inner->jiffies[i] * 1000.0 / 60.0;
+                    d->icons[i].time_ms = duration;
                 }
             }
             break;
@@ -75,19 +77,24 @@ static void collect_chunk_info(const Chunk *chunk, void *data) {
             break;
         }
         case ty_list: {
-            if (!d->flag) {
+            if (d->icons) {
                 ChunkList *inner = chunk->inner;
                 assert(inner->count == d->count);
                 for (unsigned i = 0; i < inner->count; ++i) {
                     d->icons[i].buf = inner->frames[i]->buffer;
                     d->icons[i].buf_size = inner->frames[i]->size;
-                    d->hotx = inner->hotx;
-                    d->hoty = inner->hoty;
                 }
+                d->hotx = inner->hotx;
+                d->hoty = inner->hoty;
             }
             break;
         }
         default: assert(0);
+    }
+    if (!d->has_rate) {
+        for (unsigned i = 0; i < d->count; ++i) {
+            d->icons[i].time_ms = d->jif_rate * 1000.0 / 60.0;
+        }
     }
 }
 
@@ -200,8 +207,9 @@ static int emit_info(const GlobalContext *ctx, const CursorData *data, const cha
             sb_appendf(json, "\"height\": %u,", data->cy);
             sb_appendf(json, "\"hotx\": %u,", data->hotx);
             sb_appendf(json, "\"hoty\": %u,", data->hoty);
+            sb_appendf(json, "\"jif_rate\": %u,", data->jif_rate);
             sb_appendf(json, "\"frames\": [");
-            if (data->count >= 1) {
+            if (data->count >= 1 && data->icons) {
                 for (unsigned i = 0; i < data->count - 1; ++i) {
                     StringBuilder *path_buf = sb_new();
                     if (!path_buf) {
@@ -258,8 +266,9 @@ static int emit_info(const GlobalContext *ctx, const CursorData *data, const cha
             sb_appendf(text, "Height: %u\n", data->cy);
             sb_appendf(text, "HotX: %u\n", data->hotx);
             sb_appendf(text, "HotY: %u\n", data->hoty);
+            sb_appendf(text, "JifRate: %u\n", data->jif_rate);
             sb_appendf(text, "Frames:\n");
-            if (data->count >= 1) {
+            if (data->count >= 1 && data->icons) {
                 for (unsigned i = 0; i < data->count; ++i) {
                     StringBuilder *path_buf = sb_new();
                     if (!path_buf) {
@@ -325,7 +334,11 @@ static int run_task(const GlobalContext *ctx) {
         CursorData data;
         data.count = 0;
         data.icons = NULL;
-        data.flag = 0;
+        data.cx = 0;
+        data.cy = 0;
+        data.hotx = 0;
+        data.hoty = 0;
+        data.has_rate = 0;
         walk_ctx.data = &data;
         walk(&walk_ctx);
         debug("Finish collecting info of `%s`", path);
