@@ -10,6 +10,8 @@ debug : $(source_files)
 release : $(source_files)
 	gcc $(release_op) $(source_files) -o ani-helper
 
+all : debug release
+
 clean :
 	rm -f ./ani-helper*
 

@@ -386,15 +386,21 @@ AniFile *parse_ani(FILE *file) {
     char riff_tag[5] = {0}, acon_tag[5] = {0};
     if (!read_exact(&ctx, riff_tag, 4)) {
         err("read error");
+        cleanup_ani(ani);
+        return NULL;
     }
 
     uint32_t riff_size = read_u32_le(&ctx);
     if (!read_exact(&ctx, acon_tag, 4)) {
         err("read error");
+        cleanup_ani(ani);
+        return NULL;
     }
 
     if (strncmp(riff_tag, "RIFF", 4) != 0 || strncmp(acon_tag, "ACON", 4) != 0) {
-        err("Not a RIFF ACON file: %.4s %.4s", riff_tag, acon_tag);
+        err("Not a RIFF ACON file");
+        cleanup_ani(ani);
+        return NULL;
     }
     info("RIFF ACON detected, size=%u", riff_size);
 

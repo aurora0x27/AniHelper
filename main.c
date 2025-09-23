@@ -326,6 +326,10 @@ static int run_task(const GlobalContext *ctx) {
             continue;
         }
         AniFile *ani = parse_ani(target);
+        if (!ani) {
+            fclose(target);
+            return 1;
+        }
         debug("Finish parsing `%s`", path);
         WalkContext walk_ctx;
         walk_ctx.ani = ani;
